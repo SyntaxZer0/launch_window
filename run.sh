@@ -50,8 +50,8 @@ if ! "$PY" -c "import textual" >/dev/null 2>&1; then
             exit 1
             ;;
         *)
-            "$PY" -m pip install --user textual 2>/dev/null \
-                || "$PY" -m pip install --break-system-packages textual
+            "$PY" -m pip3 install --user textual 2>/dev/null \
+                || "$PY" -m pip3 install --break-system-packages textual
             if ! "$PY" -c "import textual" >/dev/null 2>&1; then
                 echo "Install didn't work. Try manually:  $PY -m pip install textual"
                 exit 1
