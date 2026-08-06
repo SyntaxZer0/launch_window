@@ -39,7 +39,7 @@ class ScrollPanel(VerticalScroll):
     def allow_maximize(self):
         return True
 
-GUIDE_PATH = os.path.join(paths.ROOT, "GUIDE.txt")
+GUIDE_PATH = os.path.join(paths.ROOT, "Guide.txt")
 
 # mission-clock time-speed multipliers
 SPEEDS = [0.25, 0.5, 1, 2, 4, 8, 16, 32, 64]
