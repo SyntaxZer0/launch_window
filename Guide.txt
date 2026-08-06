@@ -4,8 +4,8 @@
 ===============================================================================
 
 You are not the pilot. There is no throttle, no autopilot, no glowing
-"prograde" marker begging you to burn. There is a target planet somewhere
-out there, a blank notebook, and the laws of physics — which do not
+"prograde" marker begging you to burn. There are worlds out there — one of
+them your target — a blank notebook, and the laws of physics, which do not
 negotiate and do not round in your favour.
 
 Your job is to MEASURE what you are not told, DERIVE what you cannot see,
@@ -22,20 +22,52 @@ system first; you should too.
 -------------------------------------------------------------------------------
   RUNNING IT
 -------------------------------------------------------------------------------
-    python3 launch_window.py            a fresh, random universe
-    python3 launch_window.py 42         seed 42 — hand a friend the same
-                                        number and you both get the same
-                                        solar system to race
+    ./run.sh                one window, a fresh random universe
+    ./run.sh 42             seed 42 — hand a friend the same number and you
+                            both get the same solar system to race
+    python3 tui.py 42       the same, without the launcher script
 
-The menu: (1) Instruments take raw readings, (2) Assemble rocket,
-(3) System map, (4) LAUNCH, (5) Answer key (spoilers — for checking your
-work afterwards), (6) Quit. You get unlimited launch attempts; each one
-draws your trajectory and diagnoses your error. Nothing is graded until
-you actually commit a burn.
+Everything lives in ONE window. On the left: the SYSTEM MAP (the star, your
+home world, and every other world, all orbiting live) above the MISSION
+CONSOLE, where you type commands. Down the right: the GUIDE (this text), your
+NOTES, and a CALCULATOR — all open at once, so you can read, jot and compute
+side by side. Panels toggle with ^o/^g/^n/^b and zoom to full-screen with ^z;
+^s saves everything.
+
+You drive the mission by typing in the console:
+    measure                 print every raw instrument reading
+    target [n]              list the worlds / pick which one to reach
+    rocket <v_e> <mr>       build your rocket
+    add / del / clear / plan   edit your flight plan (see below)
+    play / pause / speed / warp   run the mission clock (see below)
+    fly                     launch, at the current day
+    key                     the answer key (spoilers, for checking afterwards)
+    help                    the full command list
+
+You get unlimited attempts; each 'fly' draws your trajectory and diagnoses any
+error. Nothing is graded until you commit a burn.
 
 A note on units: work in METRES and SECONDS the whole way through and the
 formulas below just work. The instruments report periods in DAYS to be
 readable — multiply by 86400 to get seconds before you compute anything.
+
+-------------------------------------------------------------------------------
+  CHOOSING A TARGET
+-------------------------------------------------------------------------------
+Your star has several worlds, all orbiting outward of home. Type 'target' to
+list them with their distances and years; 'target <n>' (or a name) aims your
+mission at one. Your chosen world glows red on the map (the others sit muted),
+and its name shows in the status bar.
+
+Everything below — the window, the injection, the capture, the fuel — is
+computed for the world you are aiming at. Farther worlds need a bigger, slower
+transfer and far more dv, so the real question becomes: which of these can I
+actually reach with the rocket I can build? Switch targets and you must start
+the sums again — it is a different journey each time.
+
+The worlds vary widely in their own right, too: a small dense rock with gentle
+gravity is cheap to leave; a big heavy one demands a much larger rocket.
+Measure the one you mean to visit.
 
 -------------------------------------------------------------------------------
   THE CHAIN OF REASONING
@@ -45,7 +77,7 @@ Get one wrong early and the error rides silently all the way to a missed
 rendezvous — which is precisely the point.
 
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-  STEP 1 — HOW BIG IS YOUR WORLD?     (instrument 1)
+  STEP 1 — HOW BIG IS YOUR WORLD?     (measure)
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 Two ground stations a known distance d apart, north-south, read the sun's
 angle at the same moment. The angles differ by dtheta. That angular gap is
@@ -56,7 +88,7 @@ is Eratosthenes, ~240 BC, and it still works:
         radius         R = C / (2*pi)
 
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-  STEP 2 — HOW HEAVY IS YOUR WORLD?   (instrument 2, then combine with 1)
+  STEP 2 — HOW HEAVY IS YOUR WORLD?   (measure, then Step 1)
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 Drop a weight from height h; it takes time t to fall. From rest under
 constant acceleration, h = (1/2) g t^2, so:
@@ -75,7 +107,7 @@ your planet, your star, and the target.)
 If you ever want a raw escape speed from the surface: v = sqrt(2*mu/R).
 
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-  STEP 3 — HOW BIG IS THE SOLAR SYSTEM?   (instruments 3 + 4)
+  STEP 3 — HOW BIG IS THE SOLAR SYSTEM?   (measure)
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 This is the beautiful part, and it's how it really happened historically:
 you can know the SHAPE of the whole system long before its SIZE.
@@ -114,7 +146,7 @@ you can know the SHAPE of the whole system long before its SIZE.
     don't, a number upstream is wrong.)
 
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-  STEP 4 — HOW HEAVY IS THE TARGET?   (instrument 5)
+  STEP 4 — HOW HEAVY IS THE TARGET?   (measure)
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 You'll need the target's mass to STOP there (a capture burn). A moon is a
 free scale for whatever it orbits — Kepler a third time:
@@ -150,7 +182,7 @@ And the coast takes exactly half the ellipse's period:
         transfer time  tau = pi * sqrt( a_t^3 / mu_sun )
 
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-  STEP 6 — WHEN TO LAUNCH (the "window")   (instrument 6 for the current sky)
+  STEP 6 — WHEN TO LAUNCH (the "window")   (watch the live phase readout)
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 You do not aim at where the target IS. You aim at where it WILL BE after
 your transfer time tau. During tau the target sweeps forward by an angle
@@ -177,8 +209,13 @@ SYNODIC PERIOD later:
 
 Blow a window and you can wait a long time for the next. Measure twice.
 
+The status bar shows phi0 LIVE — the target's current lead — ticking as the
+mission clock rolls. You can literally watch the lead shrink toward
+phi_required and launch as it arrives. See THE MISSION CLOCK below for how to
+speed time up, slow it down, or jump straight to your launch day.
+
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-  STEP 7 — CAN YOUR ROCKET AFFORD IT?     (menu 2: Assemble rocket)
+  STEP 7 — CAN YOUR ROCKET AFFORD IT?     (rocket command)
 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 Two burns cost fuel: leaving home and stopping at the target. You do each
 from a low "parking" orbit 300 km up. The parking speed there is:
@@ -209,7 +246,7 @@ Build with a little margin. Under-measure your planet's mass back in Step 2
 and you'll under-build here, and find out at the worst possible moment.
 
 -------------------------------------------------------------------------------
-  COMMITTING THE LAUNCH — THE FLIGHT PLAN        (menu 4)
+  COMMITTING THE LAUNCH — THE FLIGHT PLAN
 -------------------------------------------------------------------------------
 You don't fire a single burn any more. You write a FLIGHT PLAN: an ordered
 list of maneuvers, each one a TRIGGER (when it fires) and a BURN (how hard,
@@ -218,8 +255,19 @@ burns, then waits for maneuver 2's, and so on. This gives you the freedom to
 reach the target however you like, and makes the mission far harder to stumble
 into by trial and error (there are now many continuous knobs, not two).
 
-You set a LAUNCH day (days from tonight — this is your window, Step 6), build
-a list of maneuvers, then type 'fly'.
+THE MISSION CLOCK. Time is always moving. The status bar shows the current day
+and the live phase. You worked out in Step 6 the lead you need and the day it
+happens; your job is to be READY — rocket built, plan written — and launch when
+the sky lines up. Control time however you like:
+
+    play / pause     start or stop the clock  (or spacebar, with map focused)
+    speed <x>        set the time rate  (or +/- ; from x0.25 up to x64)
+    warp <day>       jump the clock forward to a day  ('launch <day>' is a
+                     synonym)
+
+Time only moves FORWARD. Pausing to compute is fine and encouraged, but if you
+blow past your window you must wait (or warp) to the next one. 'fly' launches
+at the current day — so warp to your launch day (or let it roll there) and fly.
 
 TRIGGERS (when a burn fires):
     day N        at mission day N   (day 0 = the instant you release)
@@ -235,12 +283,13 @@ DIRECTIONS (which way to burn):
     out / in     away from / toward the star (radial)
     heading A    an absolute angle, A degrees (0 = the +x reference line)
 
-Console commands:  add <trigger> <dir> <dv>   launch <days>   del <n>
-                   clear   save   help   fly   back
+Console commands:  add <trigger> <dir> <dv>   del <n>   clear   plan
+                   warp <day>   play / pause / speed <x>   target <n>
+                   fly   save   key   help
 
 The simplest valid plan IS the Hohmann you computed above — one line:
 
-        launch 295                     (your Step-6 launch day)
+        warp 295                       (roll the clock to your Step-6 day)
         add day 0 prograde 3234        (your Step-5 injection dv)
         fly
 
@@ -268,14 +317,16 @@ a diagnosis:
     * "reaches the orbit, wrong time" -> fix the LAUNCH day, or add a
                                          'near <D> retrograde' arrival burn
 
-Plans are saved per solar system (menu-4 'save' -> saves/plan_<seed>.json), so
-you can tweak one maneuver and fly again without retyping the rest.
+Plans are saved per world-system: type 'save' (or ^s) and your plan, notes,
+calculator variables, chosen target and progress are written to saves/. They
+load again next time you open that seed.
 
-A QUICK TEST (seed 42): build a rocket with exhaust velocity v_e = 4000 and
-mass ratio = 1.6 (about 1880 m/s of dv), then:  launch 294.99 ;
-add day 0 prograde 3234.3 ; fly.  It tolerates about +/-2.5 days and +/-60 m/s,
-and you make orbit around day 188. (The exact launch day and injection for ANY
-seed are in the Answer Key, menu 5.)
+A QUICK TEST (seed 42): run  ./run.sh 42  (or  python3 tui.py 42 ). Build a
+rocket with exhaust velocity v_e = 4000 and mass ratio = 1.6 (about 1880 m/s
+of dv), then:  warp 294.99 ;  add day 0 prograde 3234.3 ;  fly.  It tolerates
+about +/-2.5 days and +/-60 m/s, and you make orbit around day 188. (The exact
+launch day and injection for ANY seed, and any target, are in the answer key —
+type 'key'.)
 
 -------------------------------------------------------------------------------
   A WORKED SKELETON (symbols, so it spoils nothing)
@@ -301,14 +352,17 @@ seed are in the Answer Key, menu 5.)
   * Orbits are circular and in one plane. (Real orbits are elliptical and
     tilted; those add a plane-change burn and a harder window — a natural
     "hard mode" to build later.)
+  * There are several target worlds, all on circular orbits OUTWARD of home;
+    you pick one with 'target'. (Inner worlds, which need an inward transfer,
+    and gravity assists BETWEEN worlds are natural things to add later.)
   * The rocket's coasting path feels only the STAR's gravity ("patched
-    conics"). The planets' masses still fully set your fuel bill via the two
-    burns above — they just don't tug the coast.
+    conics"). Every world's mass still fully sets your fuel bill via the two
+    burns above — the worlds just don't tug the coast.
   * Burns are instantaneous.
 These are the standard first approximations real mission designers start
 from. They are honest: every formula above is exactly what the integrator
-obeys, so correct maths always arrives. The answer key (menu 5) exists so
-you can check each number afterwards and find where a wrong turn crept in.
+obeys, so correct maths always arrives. The answer key ('key') exists so you
+can check each number afterwards and find where a wrong turn crept in.
 
 -------------------------------------------------------------------------------
   IF YOU'RE SHOWING SOMEONE

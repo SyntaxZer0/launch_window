@@ -17,7 +17,7 @@ echo.
 echo Launch Window needs the 'textual' package, which isn't installed.
 set /p "ANS=Install it now with pip? [Y/n] "
 if /I "%ANS%"=="n" goto :noinstall
-%PY% -m pip3 install textual
+%PY% -m pip install textual
 %PY% -c "import textual" >nul 2>nul
 if errorlevel 1 goto :noinstall
 
@@ -26,7 +26,7 @@ if errorlevel 1 goto :noinstall
 goto :eof
 
 :noinstall
-echo Install it later with:  %PY% -m pip3 install textual
+echo Install it later with:  %PY% -m pip install textual
 pause
 exit /b 1
 
