@@ -19,6 +19,7 @@ def has_save():
 def save_game(state):
     data = {
         "seed": state["sys"]["seed"],
+        "target_i": state["sys"].get("target_i", 0),
         "rocket": list(state["rocket"]) if state["rocket"] else None,
         "attempts": state["attempts"],
         "won": state["won"],

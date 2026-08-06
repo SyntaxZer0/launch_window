@@ -68,6 +68,30 @@ def generate_system(seed=None):
 
     park_alt = 300e3   # both parking orbits sit 300 km up
 
+    # --- additional target worlds ---------------------------------------
+    # Fresh draws AFTER everything above, so the home world and the primary
+    # target (planet 0) are byte-for-byte unchanged for any given seed.
+    _names = ["Vela", "Orin", "Talra", "Myrrh", "Cael", "Dohr",
+              "Rhee", "Ustra", "Kovan", "Ferro"]      # unique initials, no S/H
+    rng.shuffle(_names)
+    planets = [{
+        "name": _names[0], "r": r2, "T": T2, "th0": th2_0,
+        "R": R_target, "mu": mu_target, "a_moon": a_moon, "T_moon": T_moon,
+    }]
+    r_prev = r2
+    for k in range(rng.randint(2, 3)):                # 2-3 extra worlds
+        r_prev = min(6.0 * AU, r_prev * rng.uniform(1.30, 1.75))
+        Rp = rng.uniform(2.4e6, 1.10e7)
+        rhop = rng.uniform(3000.0, 6000.0)
+        mup = G * (4.0 / 3.0 * math.pi) * Rp**3 * rhop
+        am = Rp * rng.uniform(8.0, 28.0)
+        planets.append({
+            "name": _names[k + 1],
+            "r": r_prev, "T": TWO_PI * math.sqrt(r_prev**3 / mu_sun),
+            "th0": rng.uniform(0, TWO_PI), "R": Rp, "mu": mup,
+            "a_moon": am, "T_moon": TWO_PI * math.sqrt(am**3 / mup),
+        })
+
     return {
         "seed": seed,
         "mu_sun": mu_sun, "r1": r1, "r2": r2, "T1": T1, "T2": T2,
@@ -76,7 +100,20 @@ def generate_system(seed=None):
         "a_moon": a_moon, "T_moon": T_moon,
         "th1_0": th1_0, "th2_0": th2_0,
         "park_alt": park_alt,
+        "planets": planets, "target_i": 0,
     }
+
+
+def select_target(sys, i):
+    """Aim the mission at planet i — mirror its orbit/mass into the r2/target
+    fields that the rest of the engine already uses. Returns the planet."""
+    i = max(0, min(int(i), len(sys["planets"]) - 1))
+    p = sys["planets"][i]
+    sys["target_i"] = i
+    sys["r2"] = p["r"]; sys["T2"] = p["T"]; sys["th2_0"] = p["th0"]
+    sys["R_target"] = p["R"]; sys["mu_target"] = p["mu"]
+    sys["a_moon"] = p["a_moon"]; sys["T_moon"] = p["T_moon"]
+    return p
 
 
 # ----------------------------------------------------------------------

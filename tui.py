@@ -185,6 +185,8 @@ class LaunchWindow(App):
         self.rocket = resume["rocket"] if resume else None
         self.attempts = resume["attempts"] if resume else 0
         self._resumed = bool(resume)
+        if resume and resume.get("target_i"):
+            P.select_target(self.sys, resume["target_i"])
         self.plan = []
         self.day = 0.0            # live mission clock (days)
         self.playing = True       # is the clock rolling?
@@ -234,8 +236,8 @@ class LaunchWindow(App):
             f"[#cba6f7]LAUNCH WINDOW[/]   seed [b]{self.sys['seed']}[/]\n"
             "The clock is [#a6e3a1]running[/] — the worlds move as you work. Watch the "
             "[#cba6f7]phase[/] up top; [b]fly[/] when it hits your window.\n"
-            "Type [#89dceb]help[/] for commands · [#89dceb]measure[/] to read instruments · "
-            "[#89dceb]pause[/] to stop time.\n"))
+            "Several worlds orbit here — [#89dceb]target[/] lists them. "
+            "Type [#89dceb]help[/] for commands · [#89dceb]measure[/] to read instruments.\n"))
         if self._resumed:
             log.write(Text.from_markup(
                 f"[#a6e3a1]resumed your saved run[/] — seed {self.sys['seed']}, "
@@ -265,9 +267,11 @@ class LaunchWindow(App):
         phase = math.degrees((P.planet_angle(s["T2"], s["th2_0"], t)
                               - P.planet_angle(s["T1"], s["th1_0"], t)) % P.TWO_PI)
         run = "[#a6e3a1]▶[/]" if self.playing else "[#f9e2af]⏸[/]"
+        tname = self.sys["planets"][self.sys["target_i"]]["name"]
         self.query_one("#status", Static).update(Text.from_markup(
             f"seed {s['seed']}  ·  {rk}  ·  {run} day [b]{self.day:7.1f}[/]  "
-            f"×{SPEEDS[self.speed_i]:g}  ·  phase [#cba6f7]{phase:5.1f}°[/]"))
+            f"×{SPEEDS[self.speed_i]:g}  ·  phase [#cba6f7]{phase:5.1f}°[/]  ·  "
+            f"→ [#f38ba8]{tname}[/]"))
 
     def _render_map(self):
         try:
@@ -454,6 +458,7 @@ class LaunchWindow(App):
         self._clog(
             "[b]commands[/]\n"
             "  measure                 show the raw instrument readings\n"
+            "  target [n]              list worlds / pick which one to reach\n"
             "  rocket <v_e> <mr>       build a rocket (Tsiolkovsky)\n"
             "  add <trig> <dir> <dv>   add a maneuver  (near/day/apo · pro/retro/heading)\n"
             "  del <n> · clear · plan  edit / show the flight plan\n"
@@ -558,6 +563,8 @@ class LaunchWindow(App):
             self._show_plan()
         elif cmd == "fly":
             self._fly()
+        elif cmd in ("target", "targets", "worlds"):
+            self._target(rest)
         elif cmd == "key":
             self._answer_key()
         elif cmd == "saves":
@@ -573,12 +580,13 @@ class LaunchWindow(App):
 
     def _measure(self):
         s = self.sys
+        tname = s["planets"][s["target_i"]]["name"]
         dth = math.degrees(1.0e6 / s["R_home"])
         drop = math.sqrt(2 * 50.0 / s["g_home"])
         radar = 2 * (s["r2"] - s["r1"]) / P.C_LIGHT
         phi0 = math.degrees((s["th2_0"] - s["th1_0"]) % P.TWO_PI)
         self._clog(
-            "[b]raw readings[/] — derive the rest yourself\n"
+            f"[b]raw readings[/] — target [#f38ba8]{tname}[/] — derive the rest yourself\n"
             f"  shadow survey   Δθ [b]{dth:.4f}[/]° over 1.000e6 m baseline\n"
             f"  drop test       [b]{drop:.4f}[/] s from 50 m\n"
             f"  years           home [b]{s['T1']/P.DAY:.3f}[/] d   target [b]{s['T2']/P.DAY:.3f}[/] d\n"
@@ -666,8 +674,38 @@ class LaunchWindow(App):
             self._clog("  [#6c7086]right orbit, wrong time — fix the launch day, or add a "
                        "'near <D> retrograde' brake[/]")
 
+    def _target(self, rest):
+        planets = self.sys["planets"]
+        if not rest:
+            lines = [f"[b]worlds[/]   home orbit r1 = {self.sys['r1']/P.AU:.3f} AU"]
+            for i, p in enumerate(planets):
+                sel = "[#a6e3a1]►[/]" if i == self.sys["target_i"] else " "
+                lines.append(
+                    f" {sel} [#89dceb]{i}[/] {p['name']:<6}  "
+                    f"r [b]{p['r']/P.AU:.3f}[/] AU  ({p['r']/self.sys['r1']:.2f}× home)  "
+                    f"T {p['T']/P.DAY:.0f} d")
+            lines.append("[#6c7086]  farther = more Δv. 'target <n>' to aim at one.[/]")
+            self._clog("\n".join(lines))
+            return
+        tok = rest[0]
+        try:
+            if tok.lstrip("-").isdigit():
+                i = int(tok)
+            else:
+                i = [p["name"].lower() for p in planets].index(tok.lower())
+        except Exception:
+            self._clog("  [#f38ba8]target <n or name>  (see 'target')[/]"); return
+        if not 0 <= i < len(planets):
+            self._clog("  [#f38ba8]no such target[/]"); return
+        p = P.select_target(self.sys, i)
+        self.last_trail = None                      # old trail was a different world
+        self._render_map(); self._update_status()
+        self._clog(f"  [#a6e3a1]now aiming at {p['name']}[/] — {p['r']/P.AU:.3f} AU out. "
+                   "Its window, injection, and capture are all different — recompute.")
+
     def _answer_key(self):
         s = self.sys
+        tname = s["planets"][s["target_i"]]["name"]
         h = P.hohmann(s["mu_sun"], s["r1"], s["r2"])
         w1, w2 = P.TWO_PI / s["T1"], P.TWO_PI / s["T2"]
         phi_req = P.phase_required(s["mu_sun"], s["r1"], s["r2"], s["T2"])
@@ -676,7 +714,7 @@ class LaunchWindow(App):
         dep = P.oberth_burn(P.circular_v(s["mu_home"], s["R_home"] + s["park_alt"]), h["dv_inject"])
         cap = P.oberth_burn(P.circular_v(s["mu_target"], s["R_target"] + s["park_alt"]), h["dv_arrive"])
         self._clog(
-            "[b]answer key[/] (spoilers)\n"
+            f"[b]answer key[/] — target [#f38ba8]{tname}[/] (spoilers)\n"
             f"  mu_sun {s['mu_sun']:.4e}   r1 {s['r1']:.4e}   r2 {s['r2']:.4e}\n"
             f"  transfer time {h['t_transfer']/P.DAY:.1f} d   launch day "
             f"[#a6e3a1]{t_launch/P.DAY:.2f}[/]\n"
