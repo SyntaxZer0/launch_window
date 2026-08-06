@@ -48,15 +48,18 @@ def generate_system(seed=None):
     T1 = TWO_PI * math.sqrt(r1**3 / mu_sun)
     T2 = TWO_PI * math.sqrt(r2**3 / mu_sun)
 
-    # home world
-    R_home = rng.uniform(5.2e6, 6.8e6)               # radius, m
-    g_home = rng.uniform(8.4, 10.8)                  # surface gravity, m/s^2
-    mu_home = g_home * R_home**2                     # = G * M_home
+    # home world — sampled from radius + density so mass, gravity and mu all
+    # follow physically. Wide ranges: small dense rock ... chunky super-Earth.
+    R_home = rng.uniform(2.4e6, 1.10e7)             # radius, m
+    rho_home = rng.uniform(3000.0, 6000.0)          # rocky density, kg/m^3
+    mu_home = G * (4.0 / 3.0 * math.pi) * R_home**3 * rho_home
+    g_home = mu_home / R_home**2                    # surface gravity, m/s^2
 
-    # target world + its moon (moon gives us the target's mass)
-    R_target = rng.uniform(3.0e6, 6.0e6)
-    mu_target = rng.uniform(0.35, 1.6) * mu_home
-    a_moon = rng.uniform(3.0e8, 7.0e8)               # moon orbit radius, m
+    # target world + its moon (moon gives us the target's mass, via Kepler)
+    R_target = rng.uniform(2.4e6, 1.10e7)
+    rho_target = rng.uniform(3000.0, 6000.0)
+    mu_target = G * (4.0 / 3.0 * math.pi) * R_target**3 * rho_target
+    a_moon = R_target * rng.uniform(8.0, 28.0)      # moon orbit radius, m
     T_moon = TWO_PI * math.sqrt(a_moon**3 / mu_target)
 
     # starting angular positions (radians, prograde = CCW)

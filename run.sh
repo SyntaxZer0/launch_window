@@ -3,7 +3,7 @@
 # Works on Linux and macOS.   Usage:  ./run.sh   or   ./run.sh 42
 cd "$(dirname "$0")" || exit 1
 
-# The code uses 3.12+ syntax (nested quotes in f-strings), so require >= 3.12.
+# Requires Python 3.12+ (widely available; easy to install everywhere).
 need_major=3
 need_minor=12
 
@@ -38,29 +38,23 @@ fi
 
 echo "Using $($PY --version 2>&1) — starting Launch Window..."
 
-# --classic runs the original one-screen terminal version.
-if [ "$1" = "--classic" ]; then
-    shift
-    exec "$PY" launch_window.py "$@"
-fi
-
-# The GUI needs Textual. If it's missing, offer to install it.
+# Launch Window needs Textual. If it's missing, offer to install it (no root).
 if ! "$PY" -c "import textual" >/dev/null 2>&1; then
     echo
-    echo "The new GUI needs the 'textual' package, which isn't installed."
+    echo "Launch Window needs the 'textual' package, which isn't installed."
     printf "Install it now with pip?  [Y/n] "
     read -r ans
     case "$ans" in
         [Nn]*)
-            echo "No problem — starting the classic terminal version instead."
-            echo "(You can install later with:  $PY -m pip install textual)"
-            exec "$PY" launch_window.py "$@"
+            echo "OK — install it later with:  $PY -m pip install textual"
+            exit 1
             ;;
         *)
-            "$PY" -m pip3 install --user textual || "$PY" -m pip3 install textual
+            "$PY" -m pip install --user textual 2>/dev/null \
+                || "$PY" -m pip install --break-system-packages textual
             if ! "$PY" -c "import textual" >/dev/null 2>&1; then
-                echo "Install didn't work — starting the classic version instead."
-                exec "$PY" launch_window.py "$@"
+                echo "Install didn't work. Try manually:  $PY -m pip install textual"
+                exit 1
             fi
             ;;
     esac

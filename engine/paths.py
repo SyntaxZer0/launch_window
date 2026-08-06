@@ -1,17 +1,16 @@
 """
 Shared filesystem locations for the whole project, derived from this file's
-position so everything works no matter the current directory:
+position so everything works no matter the current working directory:
 
     <root>/
-      launch_window.py            entry point
+      tui.py              the game
       engine/  (this file lives here)
-      apps/    guide_reader.py, notes.py, calculator.py
-      saves/   all runtime state (savegame, notes, calc vars, session files)
+      GUIDE.txt
+      saves/              all runtime state (savegame, notes, calc vars, plans)
 """
 import os
 
 ENGINE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(ENGINE_DIR)
-APPS_DIR = os.path.join(ROOT, "apps")
 SAVES_DIR = os.path.join(ROOT, "saves")
 os.makedirs(SAVES_DIR, exist_ok=True)

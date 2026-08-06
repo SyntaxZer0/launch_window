@@ -1,6 +1,5 @@
 @echo off
-REM Launch Window (Windows) — starts the GUI; falls back to the classic version.
-REM Usage:  double-click, or  run.bat 42   ·   run.bat --classic  for the old UI.
+REM Launch Window (Windows). Usage: double-click, or  run.bat 42
 cd /d "%~dp0"
 
 set "PY="
@@ -11,30 +10,25 @@ if not defined PY goto :nopython
 %PY% -c "import sys; raise SystemExit(0 if sys.version_info[:2]>=(3,12) else 1)" 2>nul
 if errorlevel 1 goto :oldpython
 
-if /I "%~1"=="--classic" (
-    %PY% launch_window.py %*
-    goto :eof
-)
-
 %PY% -c "import textual" >nul 2>nul
 if not errorlevel 1 goto :rungui
 
 echo.
-echo The new GUI needs the 'textual' package, which isn't installed.
+echo Launch Window needs the 'textual' package, which isn't installed.
 set /p "ANS=Install it now with pip? [Y/n] "
-if /I "%ANS%"=="n" goto :classicfallback
-%PY% -m pip3 install textual
+if /I "%ANS%"=="n" goto :noinstall
+%PY% -m pip install textual
 %PY% -c "import textual" >nul 2>nul
-if errorlevel 1 goto :classicfallback
+if errorlevel 1 goto :noinstall
 
 :rungui
 %PY% tui.py %*
 goto :eof
 
-:classicfallback
-echo Starting the classic terminal version instead.
-%PY% launch_window.py %*
-goto :eof
+:noinstall
+echo Install it later with:  %PY% -m pip install textual
+pause
+exit /b 1
 
 :nopython
 echo Launch Window needs Python 3.12 or newer.
