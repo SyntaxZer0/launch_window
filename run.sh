@@ -37,4 +37,33 @@ if [ -z "$PY" ]; then
 fi
 
 echo "Using $($PY --version 2>&1) — starting Launch Window..."
-exec "$PY" launch_window.py "$@"
+
+# --classic runs the original one-screen terminal version.
+if [ "$1" = "--classic" ]; then
+    shift
+    exec "$PY" launch_window.py "$@"
+fi
+
+# The GUI needs Textual. If it's missing, offer to install it.
+if ! "$PY" -c "import textual" >/dev/null 2>&1; then
+    echo
+    echo "The new GUI needs the 'textual' package, which isn't installed."
+    printf "Install it now with pip?  [Y/n] "
+    read -r ans
+    case "$ans" in
+        [Nn]*)
+            echo "No problem — starting the classic terminal version instead."
+            echo "(You can install later with:  $PY -m pip install textual)"
+            exec "$PY" launch_window.py "$@"
+            ;;
+        *)
+            "$PY" -m pip3 install --user textual || "$PY" -m pip3 install textual
+            if ! "$PY" -c "import textual" >/dev/null 2>&1; then
+                echo "Install didn't work — starting the classic version instead."
+                exec "$PY" launch_window.py "$@"
+            fi
+            ;;
+    esac
+fi
+
+exec "$PY" tui.py "$@"
