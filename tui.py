@@ -11,7 +11,7 @@ Run:  python3 tui.py           (random system)
 Needs:  pip install textual
 """
 
-import os, sys, json, math
+import os, sys, json, math, re
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "engine"))
 import paths
@@ -43,6 +43,44 @@ GUIDE_PATH = os.path.join(paths.ROOT, "GUIDE.txt")
 
 # mission-clock time-speed multipliers
 SPEEDS = [0.25, 0.5, 1, 2, 4, 8, 16, 32, 64]
+
+# ---- light semantic highlighting for the guide ----
+_NUM = re.compile(r"(?<![\w.])\d[\d,]*(?:\.\d+)?(?:[eE][+-]?\d+)?")
+_G_BASE = "#cdd6f4"; _G_HEAD = "#cba6f7"; _G_SUB = "#89dceb"
+_G_DIM = "#45475a"; _G_NUM = "#f9e2af"; _G_EQ = "#89b4fa"
+
+
+def _append_nums(out, s, base, numc):
+    """Append s in `base`, but with numbers in `numc`."""
+    i = 0
+    for m in _NUM.finditer(s):
+        if m.start() > i:
+            out.append(s[i:m.start()], style=base)
+        out.append(m.group(), style=numc)
+        i = m.end()
+    if i < len(s):
+        out.append(s[i:], style=base)
+
+
+def highlight_guide(raw):
+    """Colour numbers, equations, and headers lightly; keep prose calm."""
+    out = Text()
+    for line in raw.split("\n"):
+        s = line.strip()
+        if s and set(s) <= set("-=—_ "):                     # divider rule
+            out.append(line + "\n", style=_G_DIM); continue
+        letters = [c for c in s if c.isalpha()]
+        upper = (letters and sum(c.isupper() for c in letters) / len(letters) > 0.7)
+        if upper and len(s) <= 64:                           # SECTION HEADER
+            out.append(line + "\n", style="bold " + _G_HEAD); continue
+        stripped = line.lstrip()
+        indented = len(line) - len(stripped) >= 4
+        if indented and "=" in s and re.search(r"[A-Za-z]", s):   # equation
+            _append_nums(out, line, _G_EQ, _G_NUM); out.append("\n"); continue
+        if s.endswith(":") and len(s) <= 44:                 # sub-label
+            _append_nums(out, line, "bold " + _G_SUB, _G_NUM); out.append("\n"); continue
+        _append_nums(out, line, _G_BASE, _G_NUM); out.append("\n")   # prose
+    return out
 
 # ---- maneuver parsing (shared grammar) ----
 _TRIGS = {"day": "day", "radius": "radius", "r": "radius", "apo": "apo",
@@ -245,9 +283,9 @@ class LaunchWindow(App):
     def _guide_text(self):
         try:
             with open(GUIDE_PATH, encoding="utf-8") as f:
-                return f.read()
+                return highlight_guide(f.read())
         except Exception:
-            return "GUIDE.txt not found."
+            return Text("GUIDE.txt not found.")
 
     def action_toggle_clock(self):
         self.playing = not self.playing

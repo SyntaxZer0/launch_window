@@ -1,60 +1,91 @@
 """
 Render the orbital map as a Rich Text object for the TUI's map panel.
-Same idea as the terminal ui._frame_lines, but returns styled Text sized to
-the panel. Colours: star=amber, home=cyan, target=red, ship=white, trail=blue,
-orbits=grey.
+
+Orbits and the flight trail are drawn with BRAILLE sub-pixels (each character
+cell packs a 2x4 dot grid, ~8x the resolution of one glyph per cell), so the
+curves are smooth. A terminal cell is ~2x taller than wide, which makes the
+2x4 sub-dots nearly square — so circles come out round with no aspect fudge.
+Star / home / target / ship stay as letters for legibility.
 """
 
 import math
 from rich.text import Text
 import physics as P
 
-ASPECT = 2.0
 STAR = "#f9e2af"; HOME = "#89dceb"; TARGET = "#f38ba8"
-SHIP = "#eff1f5"; TRAIL = "#585b70"; DOT = "#45475a"
+SHIP = "#eff1f5"; TRAIL = "#89b4fa"; DOT = "#585b70"
+
+# braille dot bit for sub-cell (dx in 0..1, dy in 0..3): _BITS[dy][dx]
+_BITS = ((0x01, 0x08), (0x02, 0x10), (0x04, 0x20), (0x40, 0x80))
 
 
 def render(sys, t=0.0, trail=None, rocket=None, width=60, height=24):
     W = max(20, width)
-    Hh = max(10, height)
-    cx, cy = W // 2, Hh // 2
-    # a styled cell grid: None = blank, else (char, colour)
-    grid: list[list] = [[None] * W for _ in range(Hh)]
-
+    H = max(8, height)
+    SW, SH = W * 2, H * 4
+    orb = bytearray(W * H)
+    trl = bytearray(W * H)
+    scx, scy = SW / 2.0, SH / 2.0
     rmax = sys["r2"] * 1.16
-    scale = max(rmax / (cy - 1), ASPECT * rmax / (cx - 1))
+    scale = rmax / (min(SW / 2.0, SH / 2.0) - 1.0)
 
-    def put(x, y, ch, col):
-        cc = cx + int(round(ASPECT * x / scale))
-        rr = cy - int(round(y / scale))
-        if 0 <= rr < Hh and 0 <= cc < W:
-            grid[rr][cc] = (ch, col)
+    def sub(x, y):                       # world -> sub-pixel coords
+        return scx + x / scale, scy - y / scale
 
-    for ring_r, ch in ((sys["r1"], "."), (sys["r2"], "\u00b7")):
-        for a in range(0, 360, 3):
-            rad = math.radians(a)
-            put(ring_r * math.cos(rad), ring_r * math.sin(rad), ch, DOT)
+    def dot(buf, sx, sy):                # set one sub-pixel
+        ix, iy = int(round(sx)), int(round(sy))
+        if 0 <= ix < SW and 0 <= iy < SH:
+            buf[(iy // 4) * W + (ix // 2)] |= _BITS[iy % 4][ix % 2]
 
+    # orbit rings
+    for ring_r in (sys["r1"], sys["r2"]):
+        n = max(240, int(2 * math.pi * ring_r / scale))
+        for k in range(n):
+            a = 2 * math.pi * k / n
+            dot(orb, *sub(ring_r * math.cos(a), ring_r * math.sin(a)))
+
+    # flight trail — interpolate between samples so the line is continuous
     if trail:
+        prev = None
         for (_, x, y) in trail:
-            put(x, y, "*", TRAIL)
+            sx, sy = sub(x, y)
+            if prev is not None:
+                px0, py0 = prev
+                steps = int(max(abs(sx - px0), abs(sy - py0))) + 1
+                for s in range(steps + 1):
+                    f = s / steps
+                    dot(trl, px0 + (sx - px0) * f, py0 + (sy - py0) * f)
+            prev = (sx, sy)
 
-    put(0, 0, "S", STAR)
+    # markers (letters) override the cell they land in
+    markers = {}
+
+    def mark(x, y, ch, col):
+        ix, iy = (int(round(v)) for v in sub(x, y))
+        if 0 <= ix < SW and 0 <= iy < SH:
+            markers[(iy // 4) * W + (ix // 2)] = (ch, col)
+
+    mark(0, 0, "S", STAR)
     (hx, hy), _ = P.planet_pos(sys["r1"], sys["T1"], sys["th1_0"], t)
     (tx, ty), _ = P.planet_pos(sys["r2"], sys["T2"], sys["th2_0"], t)
-    put(hx, hy, "H", HOME)
-    put(tx, ty, "T", TARGET)
+    mark(hx, hy, "H", HOME)
+    mark(tx, ty, "T", TARGET)
     if rocket is not None:
-        put(rocket[0], rocket[1], "o", SHIP)
+        mark(rocket[0], rocket[1], "o", SHIP)
 
     text = Text()
-    for r in range(Hh):
-        for cc in range(W):
-            cell = grid[r][cc]
-            if cell is None:
-                text.append(" ")
+    for cy in range(H):
+        for cx in range(W):
+            i = cy * W + cx
+            if i in markers:
+                ch, col = markers[i]
+                text.append(ch, style=col)
+            elif trl[i]:
+                text.append(chr(0x2800 + trl[i]), style=TRAIL)
+            elif orb[i]:
+                text.append(chr(0x2800 + orb[i]), style=DOT)
             else:
-                text.append(cell[0], style=cell[1])
-        if r != Hh - 1:
+                text.append(" ")
+        if cy != H - 1:
             text.append("\n")
     return text
