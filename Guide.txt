@@ -1,0 +1,323 @@
+===============================================================================
+                    L A U N C H   W I N D O W
+        a field manual for the scientist who wants to leave home
+===============================================================================
+
+You are not the pilot. There is no throttle, no autopilot, no glowing
+"prograde" marker begging you to burn. There is a target planet somewhere
+out there, a blank notebook, and the laws of physics — which do not
+negotiate and do not round in your favour.
+
+Your job is to MEASURE what you are not told, DERIVE what you cannot see,
+and COMMIT a launch. A real physics engine then flies your rocket under
+your star's gravity. If your arithmetic was right, you arrive. If it
+wasn't, the void will tell you exactly how you were wrong, and invite you
+to try again.
+
+This manual teaches the method, not the answers. Every game (every "seed")
+hides different numbers, so there is nothing to memorise — only a chain of
+reasoning to walk. Grab paper. Old-school astronomers drew their solar
+system first; you should too.
+
+-------------------------------------------------------------------------------
+  RUNNING IT
+-------------------------------------------------------------------------------
+    python3 launch_window.py            a fresh, random universe
+    python3 launch_window.py 42         seed 42 — hand a friend the same
+                                        number and you both get the same
+                                        solar system to race
+
+The menu: (1) Instruments take raw readings, (2) Assemble rocket,
+(3) System map, (4) LAUNCH, (5) Answer key (spoilers — for checking your
+work afterwards), (6) Quit. You get unlimited launch attempts; each one
+draws your trajectory and diagnoses your error. Nothing is graded until
+you actually commit a burn.
+
+A note on units: work in METRES and SECONDS the whole way through and the
+formulas below just work. The instruments report periods in DAYS to be
+readable — multiply by 86400 to get seconds before you compute anything.
+
+-------------------------------------------------------------------------------
+  THE CHAIN OF REASONING
+-------------------------------------------------------------------------------
+Everything unlocks in order. Each measurement feeds the next calculation.
+Get one wrong early and the error rides silently all the way to a missed
+rendezvous — which is precisely the point.
+
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  STEP 1 — HOW BIG IS YOUR WORLD?     (instrument 1)
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+Two ground stations a known distance d apart, north-south, read the sun's
+angle at the same moment. The angles differ by dtheta. That angular gap is
+the same fraction of a full circle as d is of the whole circumference. This
+is Eratosthenes, ~240 BC, and it still works:
+
+        circumference  C = d * (360 / dtheta)          [dtheta in degrees]
+        radius         R = C / (2*pi)
+
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  STEP 2 — HOW HEAVY IS YOUR WORLD?   (instrument 2, then combine with 1)
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+Drop a weight from height h; it takes time t to fall. From rest under
+constant acceleration, h = (1/2) g t^2, so:
+
+        surface gravity  g = 2h / t^2
+
+Surface gravity is just the pull of the planet's mass at its surface,
+g = G*M / R^2. You don't need M and G separately — the useful bundle is
+the "gravitational parameter" mu = G*M:
+
+        mu_home = g * R^2
+
+(That bundle is all orbital mechanics ever needs. You will compute a mu for
+your planet, your star, and the target.)
+
+If you ever want a raw escape speed from the surface: v = sqrt(2*mu/R).
+
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  STEP 3 — HOW BIG IS THE SOLAR SYSTEM?   (instruments 3 + 4)
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+This is the beautiful part, and it's how it really happened historically:
+you can know the SHAPE of the whole system long before its SIZE.
+
+(a) The sidereal clock gives both worlds' orbital periods, T1 (yours) and
+    T2 (the target's). Kepler's third law says period^2 is proportional to
+    orbit-radius^3 around the same star. So the RATIO of the orbits falls
+    straight out, with no distances at all:
+
+        r2 / r1 = (T2 / T1)^(2/3)
+
+    Now you know the target's orbit is, say, 1.6x yours — but 1.6x of WHAT?
+    You still have no absolute distance. The map has no scale bar.
+
+(b) Radar fixes the scale bar. Fired at "opposition" (the moment the target
+    is closest, straight out from the star past you), the echo's round-trip
+    time t_rt gives one real distance in metres — the gap between the two
+    orbits:
+
+        r2 - r1 = c * t_rt / 2
+
+(c) Two facts, two unknowns. Combine them:
+
+        r1 = (r2 - r1) / ( (r2/r1) - 1 )
+        r2 = (r2/r1) * r1
+
+    The instant you have one absolute distance, the entire system snaps to
+    scale. This is a genuinely great moment; savour it.
+
+(d) With a real radius and period for your own orbit, Kepler gives the
+    STAR's mass parameter:
+
+        mu_sun = 4 * pi^2 * r1^3 / T1^2
+
+    (Sanity check: plug in r2 and T2; you must get the same mu_sun. If you
+    don't, a number upstream is wrong.)
+
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  STEP 4 — HOW HEAVY IS THE TARGET?   (instrument 5)
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+You'll need the target's mass to STOP there (a capture burn). A moon is a
+free scale for whatever it orbits — Kepler a third time:
+
+        mu_target = 4 * pi^2 * a_moon^3 / T_moon^2
+
+where a_moon is the moon's orbit radius and T_moon its period (in seconds!).
+
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  STEP 5 — THE TRANSFER ELLIPSE       (pure maths now — no instruments)
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+The cheapest path between two circular orbits is a Hohmann transfer: an
+ellipse that just kisses your orbit at its near end and the target's orbit
+at its far end. Its semi-major axis is the average of the two radii:
+
+        a_t = (r1 + r2) / 2
+
+Speeds come from the "vis-viva" equation, v = sqrt( mu * (2/r - 1/a) ):
+
+        v1     = sqrt(mu_sun / r1)                  your circular speed
+        v2     = sqrt(mu_sun / r2)                  target's circular speed
+        v_peri = sqrt(mu_sun * (2/r1 - 1/a_t))      transfer speed at r1
+        v_apo  = sqrt(mu_sun * (2/r2 - 1/a_t))      transfer speed at r2
+
+Your prograde INJECTION burn (the first maneuver in your flight plan --
+"day 0 prograde ...") is just how much faster than your own orbit you must
+go at departure:
+
+        injection dv = v_peri - v1
+
+And the coast takes exactly half the ellipse's period:
+
+        transfer time  tau = pi * sqrt( a_t^3 / mu_sun )
+
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  STEP 6 — WHEN TO LAUNCH (the "window")   (instrument 6 for the current sky)
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+You do not aim at where the target IS. You aim at where it WILL BE after
+your transfer time tau. During tau the target sweeps forward by an angle
+2*pi*tau/T2. For it to arrive at your ellipse's far point exactly when you
+do, it must LEAD you at launch by:
+
+        phi_required = pi - 2*pi*tau/T2       (radians; = 180deg - ...)
+
+The ephemeris tells you tonight's lead, phi0. Both worlds run counter-
+clockwise; your inner orbit is faster, so you catch up on the target and
+the lead shrinks at the relative rate (w1 - w2), where w = 2*pi/T:
+
+        w1 = 2*pi/T1,   w2 = 2*pi/T2       (w1 > w2)
+
+Wait until the shrinking lead equals phi_required:
+
+        t_launch = ( (phi0 - phi_required) mod 2*pi ) / (w1 - w2)
+
+That's your launch time in seconds from "tonight" (divide by 86400 for the
+days the console wants). Miss it and the next identical alignment is one
+SYNODIC PERIOD later:
+
+        S = 1 / | 1/T1 - 1/T2 |
+
+Blow a window and you can wait a long time for the next. Measure twice.
+
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  STEP 7 — CAN YOUR ROCKET AFFORD IT?     (menu 2: Assemble rocket)
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+Two burns cost fuel: leaving home and stopping at the target. You do each
+from a low "parking" orbit 300 km up. The parking speed there is:
+
+        v_park = sqrt( mu_body / (R_body + 300000) )        per body
+
+The clever bit (the Oberth effect): burning deep in a gravity well is
+cheaper than the raw heliocentric dv suggests. The real burn to reach a
+hyperbolic "excess" speed v_inf from a parking orbit is:
+
+        burn = sqrt( v_park^2 + v_inf^2 ) - v_park
+
+        departure burn:  v_inf = injection dv   (uses mu_home, R_home)
+        capture burn:    v_inf = (v2 - v_apo)    (uses mu_target, R_target)
+
+        total dv needed = departure burn + capture burn
+
+Finally, Tsiolkovsky's rocket equation turns dv into fuel. With exhaust
+velocity v_e and mass ratio m0/mf (fuelled over dry):
+
+        dv_capacity = v_e * ln( m0 / mf )
+
+So the mass ratio you must build to afford your mission is:
+
+        m0/mf = exp( total_dv_needed / v_e )
+
+Build with a little margin. Under-measure your planet's mass back in Step 2
+and you'll under-build here, and find out at the worst possible moment.
+
+-------------------------------------------------------------------------------
+  COMMITTING THE LAUNCH — THE FLIGHT PLAN        (menu 4)
+-------------------------------------------------------------------------------
+You don't fire a single burn any more. You write a FLIGHT PLAN: an ordered
+list of maneuvers, each one a TRIGGER (when it fires) and a BURN (how hard,
+which way). The plan runs top to bottom — it waits for maneuver 1's trigger,
+burns, then waits for maneuver 2's, and so on. This gives you the freedom to
+reach the target however you like, and makes the mission far harder to stumble
+into by trial and error (there are now many continuous knobs, not two).
+
+You set a LAUNCH day (days from tonight — this is your window, Step 6), build
+a list of maneuvers, then type 'fly'.
+
+TRIGGERS (when a burn fires):
+    day N        at mission day N   (day 0 = the instant you release)
+    radius R     when your distance from the STAR reaches R metres
+                 (this is your "height"; accepts AU, e.g.  radius 1.5au)
+    apo          at the high point of your current arc (apoapsis)
+    peri         at the low point (periapsis)
+    near D       when you come within D metres of the target
+
+DIRECTIONS (which way to burn):
+    prograde     along your motion   (speeds up, raises the far side)
+    retrograde   against your motion (slows down — braking and capture)
+    out / in     away from / toward the star (radial)
+    heading A    an absolute angle, A degrees (0 = the +x reference line)
+
+Console commands:  add <trigger> <dir> <dv>   launch <days>   del <n>
+                   clear   save   help   fly   back
+
+The simplest valid plan IS the Hohmann you computed above — one line:
+
+        launch 295                     (your Step-6 launch day)
+        add day 0 prograde 3234        (your Step-5 injection dv)
+        fly
+
+But now you can be cleverer — split the injection, trim at apoapsis, or bend
+in with a braking burn as you arrive, e.g.
+
+        add day 0 prograde 3000        get most of the way onto the transfer
+        add apo prograde 250           raise the far side at apoapsis
+        add near 3e9 retrograde 400    brake as the target looms
+
+FUEL (it rewards good flying):
+    * Your rocket's total dv (Step 7) is the budget; each burn spends its dv.
+    * The FIRST burn (still in the home well) and any burn INSIDE the target's
+      sphere get the Oberth discount — cheaper than their face dv. Deep-space
+      burns cost full price. The flight log tags which is which.
+    * CAPTURE happens when you enter the sphere of influence slowly enough that
+      your leftover dv can hold you. So a well-placed 'near ... retrograde'
+      arrival burn genuinely helps — arrive gently and you need less fuel.
+
+It integrates your path for real, animates the ship along it, and reports the
+flight log, closest approach vs the sphere of influence, and — if you missed —
+a diagnosis:
+    * "arc fell short / overshot"     -> your prograde dv is too low / high
+    * "grazed the SOI but too fast"   -> arrive slower, or carry more dv
+    * "reaches the orbit, wrong time" -> fix the LAUNCH day, or add a
+                                         'near <D> retrograde' arrival burn
+
+Plans are saved per solar system (menu-4 'save' -> saves/plan_<seed>.json), so
+you can tweak one maneuver and fly again without retyping the rest.
+
+A QUICK TEST (seed 42): build a rocket with exhaust velocity v_e = 4000 and
+mass ratio = 1.6 (about 1880 m/s of dv), then:  launch 294.99 ;
+add day 0 prograde 3234.3 ; fly.  It tolerates about +/-2.5 days and +/-60 m/s,
+and you make orbit around day 188. (The exact launch day and injection for ANY
+seed are in the Answer Key, menu 5.)
+
+-------------------------------------------------------------------------------
+  A WORKED SKELETON (symbols, so it spoils nothing)
+-------------------------------------------------------------------------------
+    R      = d * 360 / dtheta / (2*pi)
+    g      = 2*h / t^2
+    mu_h   = g * R^2
+    ratio  = (T2/T1)^(2/3)                         [T's in seconds]
+    r1     = (c*t_rt/2) / (ratio - 1)
+    r2     = ratio * r1
+    mu_sun = 4*pi^2 * r1^3 / T1^2
+    mu_t   = 4*pi^2 * a_moon^3 / T_moon^2
+    a_t    = (r1 + r2)/2
+    dv_inj = sqrt(mu_sun*(2/r1 - 1/a_t)) - sqrt(mu_sun/r1)
+    tau    = pi * sqrt(a_t^3 / mu_sun)
+    phi_req= pi - 2*pi*tau/T2
+    t_lnch = ((phi0 - phi_req) mod 2pi) / (2*pi/T1 - 2*pi/T2)
+    ... then the two Oberth burns, sum, and Tsiolkovsky for the mass ratio.
+
+-------------------------------------------------------------------------------
+  WHAT THE SIMULATOR ASSUMES (so you know it isn't cheating)
+-------------------------------------------------------------------------------
+  * Orbits are circular and in one plane. (Real orbits are elliptical and
+    tilted; those add a plane-change burn and a harder window — a natural
+    "hard mode" to build later.)
+  * The rocket's coasting path feels only the STAR's gravity ("patched
+    conics"). The planets' masses still fully set your fuel bill via the two
+    burns above — they just don't tug the coast.
+  * Burns are instantaneous.
+These are the standard first approximations real mission designers start
+from. They are honest: every formula above is exactly what the integrator
+obeys, so correct maths always arrives. The answer key (menu 5) exists so
+you can check each number afterwards and find where a wrong turn crept in.
+
+-------------------------------------------------------------------------------
+  IF YOU'RE SHOWING SOMEONE
+-------------------------------------------------------------------------------
+Start them on a shared seed. Have them draw the two orbits and the star on
+paper first, mark tonight's lead angle, then work the chain top to bottom.
+The magic beat is Step 3(c): the moment the radar ping turns a dimensionless
+sketch into a real map with kilometres on it. Everything after that is
+"just" careful sums — and then a rocket, flown honestly, proves you right.
+
+                              clear skies.
+===============================================================================

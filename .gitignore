@@ -1,0 +1,6 @@
+__pycache__
+.lab_session
+.lab_windows
+saves/
+savegame.json
+.DS_Store
